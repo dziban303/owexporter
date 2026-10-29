@@ -3,12 +3,14 @@ name: Build and publish Docker image
 # Publishes the exporter image to GitHub Container Registry (GHCR) and, when
 # Docker Hub credentials are configured as repo secrets, to Docker Hub as well.
 #
-# The Docker Hub push is skipped automatically if the DOCKERHUB_USERNAME secret
-# is not set, so the workflow still succeeds on GHCR alone.
+# The Docker Hub push is skipped automatically unless both DOCKERHUB_USERNAME
+# and DOCKERHUB_TOKEN are set, so the workflow still succeeds on GHCR alone.
+# Every branch push builds on GitHub-hosted runners and publishes branch/SHA
+# tags; latest is reserved for the default branch and semver releases.
 
 on:
   push:
-    branches: [main]
+    branches: ["**"]
     tags: ["v*"]
   pull_request:
     branches: [main]
@@ -17,7 +19,7 @@ on:
 env:
   # Docker Hub repository name (namespace comes from the DOCKERHUB_USERNAME secret).
   # Kept identical to the GHCR name, which is derived from the repo (github.repository).
-  DOCKERHUB_IMAGE_NAME: open-webui-exporter
+  DOCKERHUB_IMAGE_NAME: owexporter
 
 jobs:
   build-and-push:
@@ -30,14 +32,29 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install test dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run regression tests
+        run: python -m unittest discover -s tests -v
+
       - name: Detect Docker Hub credentials
         id: dockerhub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          if [ -n "${{ secrets.DOCKERHUB_USERNAME }}" ]; then
+          if [ -n "$DOCKERHUB_USERNAME" ] && [ -n "$DOCKERHUB_TOKEN" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::DOCKERHUB_USERNAME secret not set — skipping Docker Hub push, publishing to GHCR only."
+            echo "::notice::Docker Hub credentials incomplete — skipping Docker Hub push, publishing to GHCR only."
           fi
 
       - name: Set up QEMU (multi-arch emulation)
@@ -75,6 +92,7 @@ jobs:
           #   - every build        -> a short-sha tag for immutable pinning
           tags: |
             type=ref,event=branch
+            type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
