@@ -7,7 +7,7 @@ here are meant to be global.) This is a heavier fetch, but it matches the
 exporter's existing global pull of /evaluations/feedbacks/all/export.
 """
 
-from collectors.client import get_json
+from collectors.client import CHATS_REQUEST_TIMEOUT_SECONDS, get_json
 from metrics import (
     ASSISTANT_MESSAGES_TOTAL,
     AVG_ASSISTANT_MESSAGE_LENGTH,
@@ -46,7 +46,10 @@ def collect_chats_stats(session, base_url, user_map=None):
     place both halves of the multiplication are available.
     """
     user_map = user_map or {}
-    chats = get_json(session, base_url, "/api/v1/chats/all/db")
+    chats = get_json(
+        session, base_url, "/api/v1/chats/all/db",
+        read_timeout=CHATS_REQUEST_TIMEOUT_SECONDS,
+    )
     if not isinstance(chats, list):
         chats = chats.get("items", [])
 

@@ -33,7 +33,10 @@ export $(cat .env | xargs)
 # Verify metrics are being served
 curl http://localhost:9090/metrics
 
-# Compile-check all Python files (no test suite exists yet)
+# Run regression tests
+python -m unittest discover -s tests -v
+
+# Compile-check all Python files
 .venv/bin/python -m py_compile exporter.py metrics.py collectors/*.py scripts/*.py
 
 # Run with Docker Compose (Open WebUI first, then an exporter stack).
@@ -54,7 +57,7 @@ OPENWEBUI_BASE_URL=http://localhost:3000 .venv/bin/python scripts/seed_mock_data
 OPENWEBUI_BASE_URL=http://localhost:3000 .venv/bin/python scripts/teardown_mock_data.py
 ```
 
-There is no test suite, linter, or formatter configured — `py_compile` is currently the only automated check.
+Regression tests live in `tests/` and run with `python -m unittest discover -s tests -v`. No linter or formatter is configured.
 
 ## Architecture
 
@@ -66,7 +69,7 @@ There is no test suite, linter, or formatter configured — `py_compile` is curr
 
 **Metric definitions live in one place.** All Prometheus Gauges/Counters are declared in `metrics.py` and imported by whichever collector(s) populate them — `exporter.py` and the collectors never construct metric objects themselves. When adding a new metric, add it to `metrics.py` first.
 
-**`collectors/client.py::get_json`** is the single shared HTTP call wrapper (Bearer auth session, 5s timeout, raises on any failure) — all collectors route through it rather than calling `requests` directly.
+**`collectors/client.py::get_json`** is the single shared HTTP call wrapper (Bearer auth session, configurable `REQUEST_TIMEOUT_SECONDS`, default 5s for connecting and reading, raises on any failure). The full chat export overrides the read timeout with `CHATS_REQUEST_TIMEOUT_SECONDS` (default 60s). All collectors route through it rather than calling `requests` directly.
 
 **Endpoint scope matters: some Open WebUI endpoints are admin-wide, others are scoped to the calling user.** `/api/v1/analytics/*` and `/api/v1/evaluations/feedbacks/all/export` are admin-wide (they see every user). But `/api/v1/chats/stats/usage` and `/api/v1/chats/archived/count` are scoped to the *requester* — using them undercounts to just the API key's own chats. So `collect_chats_stats` instead pulls the admin-wide `/api/v1/chats/all/db` and aggregates message counts, user/assistant splits, content lengths, tags, archived count, and per-model response times client-side. This is a heavier per-poll fetch (full chat objects), but it's the same global-pull pattern the feedback collector already uses, and it's the only way these totals are correct on a multi-user instance.
 

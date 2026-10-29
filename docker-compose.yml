@@ -38,6 +38,8 @@ services:
       OPENWEBUI_BASE_URL: http://host.docker.internal:3000
       OPENWEBUI_API_KEY: ${OPENWEBUI_API_KEY:?set OPENWEBUI_API_KEY in .env}
       POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-30}
+      REQUEST_TIMEOUT_SECONDS: ${REQUEST_TIMEOUT_SECONDS:-5}
+      CHATS_REQUEST_TIMEOUT_SECONDS: ${CHATS_REQUEST_TIMEOUT_SECONDS:-60}
       EXPORTER_PORT: "9090"
       # Point at the mounted CSV to override the built-in price table. Empty by
       # default, so the image's built-in prices are used until you opt in.

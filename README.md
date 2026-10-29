@@ -34,6 +34,8 @@ OPENWEBUI_BASE_URL=http://localhost:3000
 OPENWEBUI_API_KEY=<your key>
 POLL_INTERVAL_SECONDS=30
 EXPORTER_PORT=9090
+REQUEST_TIMEOUT_SECONDS=5
+CHATS_REQUEST_TIMEOUT_SECONDS=60
 
 # Optional: override the per-model price table (see "Pricing" below).
 # MODEL_PRICES_CSV=/etc/openwebui-exporter/model_prices.csv
@@ -45,6 +47,24 @@ COST_PER_1K_OUTPUT_TOKENS=0
 ```
 
 Use an **admin** API key — several metrics come from admin-wide endpoints (all users' analytics, feedback, and chats).
+
+`REQUEST_TIMEOUT_SECONDS` sets the connection timeout and default read timeout.
+The full chat-history export (`/api/v1/chats/all/db`) uses
+`CHATS_REQUEST_TIMEOUT_SECONDS` for its read timeout instead (default 60 seconds),
+because it fetches every user's full chats. Both accept positive, finite seconds.
+Read timeouts measure inactivity between reads, not the total download time.
+If `chats_stats` reports `Read timed out`, increase `CHATS_REQUEST_TIMEOUT_SECONDS`
+to suit your instance. Failed collections retain the previous chat/cost metrics
+and mark exporter scrape success as 0; other collectors continue to run.
+Collectors run sequentially, so a slow export delays the rest of that poll cycle;
+the poll interval is the sleep after each completed cycle.
+
+These settings require an image containing this change. The Compose files pull
+a published image by default; local source edits do not change that image. To
+run your local fix, build it with `docker build -t openwebui-exporter:local .`,
+set `EXPORTER_IMAGE=openwebui-exporter:local` in `.env`, and recreate the exporter
+with `docker compose up -d --force-recreate exporter` (add
+`-f docker-compose.monitoring.yml` if using the monitoring stack).
 
 ## Pricing
 
