@@ -8,7 +8,7 @@
 # Columns:
 #   model             model id exactly as Open WebUI reports it (e.g. gpt-4o,
 #                     claude-sonnet-4-5, llama3.2:1b). Prefix-matched, so
-#                     "gpt-4o" also covers "gpt-4o-2024-11-20".
+#                     gpt-4o also covers gpt-4o-2024-11-20.
 #   provider          free-text label (openai/anthropic/google/...); optional.
 #   input_per_1m      $ per 1M prompt (input) tokens.       REQUIRED
 #   output_per_1m     $ per 1M completion (output) tokens.  REQUIRED
