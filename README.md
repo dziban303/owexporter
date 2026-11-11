@@ -59,13 +59,6 @@ and mark exporter scrape success as 0; other collectors continue to run.
 Collectors run sequentially, so a slow export delays the rest of that poll cycle;
 the poll interval is the sleep after each completed cycle.
 
-These settings require an image containing this change. The Compose files pull
-a published image by default; local source edits do not change that image. To
-run your local fix, build it with `docker build -t openwebui-exporter:local .`,
-set `EXPORTER_IMAGE=openwebui-exporter:local` in `.env`, and recreate the exporter
-with `docker compose up -d --force-recreate exporter` (add
-`-f docker-compose.monitoring.yml` if using the monitoring stack).
-
 ## Pricing
 
 Open WebUI reports token counts but never what a request cost, so spend is reconstructed from a rate table in [`pricing.py`](pricing.py). It ships with published **list prices (snapshot: July 2026, `$` per 1M tokens)** for the SOTA models from the major providers — OpenAI, Anthropic, Google, xAI, DeepSeek, Alibaba Qwen, Z.ai/GLM, Mistral — each with `input` / `output` and, where the provider offers prompt caching, `cache_read` / `cache_write` rates. The **local Ollama** entries are **mock prices** (real local inference is free) so a local-only instance still shows a non-zero cost signal. Lookup is exact-match first, then longest prefix, so `gpt-4o-2024-11-20` resolves to the `gpt-4o` row.
