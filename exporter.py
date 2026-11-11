@@ -30,6 +30,7 @@ log = logging.getLogger("openwebui-exporter")
 BASE_URL = os.environ.get("OPENWEBUI_BASE_URL", "http://localhost:3000").rstrip("/")
 API_KEY = os.environ.get("OPENWEBUI_API_KEY", "")
 POLL_INTERVAL_SECONDS = int(os.environ.get("POLL_INTERVAL_SECONDS", "30"))
+MAX_RETRY_INTERVAL_SECONDS = 300
 EXPORTER_PORT = int(os.environ.get("EXPORTER_PORT", "9090"))
 
 # Token prices live in pricing.py (COST_PER_1K_* is still read there as the
@@ -106,13 +107,22 @@ def poll_once(session):
 
     EXPORTER_SCRAPE_SUCCESS.set(1 if ok else 0)
     EXPORTER_LAST_SCRAPE_DURATION_SECONDS.set(time.monotonic() - start)
+    return ok
 
 
 def poll_loop():
     session = make_session()
+    retry_interval = POLL_INTERVAL_SECONDS
+    max_retry_interval = max(POLL_INTERVAL_SECONDS, MAX_RETRY_INTERVAL_SECONDS)
     while True:
-        poll_once(session)
-        time.sleep(POLL_INTERVAL_SECONDS)
+        succeeded = poll_once(session)
+        if succeeded:
+            retry_interval = POLL_INTERVAL_SECONDS
+        else:
+            log.warning("poll cycle failed; retrying in %ss", retry_interval)
+        time.sleep(retry_interval)
+        if not succeeded:
+            retry_interval = min(retry_interval * 2, max_retry_interval)
 
 
 def main():

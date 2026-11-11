@@ -57,7 +57,9 @@ If `chats_stats` reports `Read timed out`, increase `CHATS_REQUEST_TIMEOUT_SECON
 to suit your instance. Failed collections retain the previous chat/cost metrics
 and mark exporter scrape success as 0; other collectors continue to run.
 Collectors run sequentially, so a slow export delays the rest of that poll cycle;
-the poll interval is the sleep after each completed cycle.
+the poll interval is the sleep after each successful cycle. If any collector
+fails, the next poll waits with exponential backoff (starting at the poll
+interval, doubling to a 5-minute cap); a successful cycle resets the delay.
 
 These settings require an image containing this change. The Compose files pull
 a published image by default; local source edits do not change that image. To
