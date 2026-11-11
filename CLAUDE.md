@@ -61,7 +61,7 @@ Regression tests live in `tests/` and run with `python -m unittest discover -s t
 
 ## Architecture
 
-**Poll-based, not push-based.** A single background daemon thread (`exporter.py::poll_loop`) wakes up every `POLL_INTERVAL_SECONDS` (default 30s), calls every collector once, and `prometheus_client.start_http_server` serves whatever is currently in the in-memory Gauge/Counter registry on the main thread. There is no per-scrape-request fetching — Prometheus scraping `/metrics` just reads whatever the last poll cycle wrote.
+**Poll-based, not push-based.** A single background daemon thread (`exporter.py::poll_loop`) calls every collector once, then sleeps `POLL_INTERVAL_SECONDS` (default 30s) after a successful cycle. Failed cycles use exponential retry backoff from that interval to a 5-minute cap, resetting after success. `prometheus_client.start_http_server` serves whatever is currently in the in-memory Gauge/Counter registry on the main thread. There is no per-scrape-request fetching — Prometheus scraping `/metrics` just reads whatever the last poll cycle wrote.
 
 **Collector isolation is the core design constraint.** Each collector function in `collectors/` is called independently inside its own `try/except` in `exporter.py::poll_once`. One endpoint failing (bad auth, Open WebUI down, unexpected response shape) must never crash the process or block other collectors — it increments `EXPORTER_SCRAPE_ERRORS_TOTAL{endpoint=...}` and flips `EXPORTER_SCRAPE_SUCCESS` to 0 instead. Any new collector must follow this pattern: do its own `get_json` calls, let exceptions propagate up to `poll_once`'s try/except rather than swallowing them internally.
 

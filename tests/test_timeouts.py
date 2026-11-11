@@ -14,6 +14,49 @@ from metrics import CHATS_TOTAL, EXPORTER_SCRAPE_ERRORS_TOTAL, EXPORTER_SCRAPE_S
 
 
 class TimeoutTests(unittest.TestCase):
+    def test_poll_loop_doubles_retry_delay_and_resets_after_success(self):
+        class StopPolling(Exception):
+            pass
+
+        sleeps = []
+
+        def stop_after_three_sleeps(delay):
+            sleeps.append(delay)
+            if len(sleeps) == 3:
+                raise StopPolling
+
+        with patch.object(exporter, "make_session"), patch.object(
+            exporter, "POLL_INTERVAL_SECONDS", 30,
+        ), patch.object(exporter, "MAX_RETRY_INTERVAL_SECONDS", 300), patch.object(
+            exporter, "poll_once", side_effect=[False, False, True],
+        ) as poll_once, patch.object(exporter.time, "sleep", side_effect=stop_after_three_sleeps):
+            with self.assertRaises(StopPolling):
+                exporter.poll_loop()
+
+        self.assertEqual(sleeps, [30, 60, 30])
+        self.assertEqual(poll_once.call_count, 3)
+
+    def test_poll_loop_caps_retry_delay(self):
+        class StopPolling(Exception):
+            pass
+
+        sleeps = []
+
+        def stop_after_four_sleeps(delay):
+            sleeps.append(delay)
+            if len(sleeps) == 4:
+                raise StopPolling
+
+        with patch.object(exporter, "make_session"), patch.object(
+            exporter, "POLL_INTERVAL_SECONDS", 30,
+        ), patch.object(exporter, "MAX_RETRY_INTERVAL_SECONDS", 120), patch.object(
+            exporter, "poll_once", return_value=False,
+        ), patch.object(exporter.time, "sleep", side_effect=stop_after_four_sleeps):
+            with self.assertRaises(StopPolling):
+                exporter.poll_loop()
+
+        self.assertEqual(sleeps, [30, 60, 120, 120])
+
     def test_default_request_preserves_params_and_short_timeouts(self):
         session = Mock()
         session.get.return_value.json.return_value = {"items": []}
