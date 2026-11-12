@@ -27,6 +27,9 @@ from metrics import (
 )
 from pricing import cost_for, price_for
 
+# A regenerated reply can point back to a prompt from a much earlier session.
+MAX_ESTIMATED_RESPONSE_SECONDS = 20 * 60
+
 
 def _tag_name(tag):
     """Tags may be plain strings or {id,name} dicts depending on version."""
@@ -134,7 +137,9 @@ def collect_chats_stats(session, base_url, user_map=None):
                 else:
                     parent = messages.get(msg.get("parentId"))
                     if parent and parent.get("timestamp") and msg.get("timestamp"):
-                        seconds = max(0, msg["timestamp"] - parent["timestamp"])
+                        elapsed = msg["timestamp"] - parent["timestamp"]
+                        if 0 < elapsed <= MAX_ESTIMATED_RESPONSE_SECONDS:
+                            seconds = elapsed
                 if seconds > 0:
                     resp_sum[model_id] = resp_sum.get(model_id, 0) + seconds
                     resp_n[model_id] = resp_n.get(model_id, 0) + 1
